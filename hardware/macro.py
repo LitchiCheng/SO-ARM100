@@ -45,7 +45,7 @@ SCS_SERIES_CONTROL_TABLE = {
     "Torque_Limit": (48, 2),
     "Lock": (55, 1),
     "Present_Position": (56, 2),
-    "Present_Speed": (58, 2),
+    "Present_Speed": (58, 2),  # 
     "Present_Load": (60, 2),
     "Present_Voltage": (62, 1),
     "Present_Temperature": (63, 1),
