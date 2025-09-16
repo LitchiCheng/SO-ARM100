@@ -7,10 +7,10 @@ import time
 
 # 目标位置（角度）
 motor_positions = [
-    0.17,                  
-    -180,
-    170,
-    67,
+    0.0,                  
+    -90.0,                
+    90,
+    63,
     0,
     0
 ]
@@ -43,6 +43,7 @@ try:
             motor.setMotorId(i)
             current_angle = motor.getPosition()  # 直接获取当前角度
             target_angle = motor_positions[i - 1]
+            motor.setPosition(target_angle)  # 直接使用角度设置位置
             angle_diff = abs(current_angle - target_angle)
             
             # 检查是否在允许的误差范围内

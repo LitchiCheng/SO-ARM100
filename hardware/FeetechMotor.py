@@ -3,19 +3,19 @@ from . import macro
 import scservo_sdk as scs
 import math
 
-# # motor zero position limits
+# # motor middle position limits
+# offset_deg = [0.0, -10.0, 0.0, 0.0, 0.0, 0.0]
+# direction = [-1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 # lower_limits_deg = [-126.05, -89.99, -89.99, -114.59, -179.99, -11.46]
 # upper_limits_deg = [126.05, 101.46, 89.99, 103.13, 179.99, 114.59]
+lower_limits_deg = [-180.0, -180.0, -180.0, -180.0, -180.0, -180.0]
+upper_limits_deg = [180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
 
 # motor2mujoco zero offset
-offset_deg = [0.0, 90.0, -90.0, 0.0, 0.0, 0.0]
-
-# motor2mujoco direction
-direction = [-1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-
-# mujoco zero position limits
-lower_limits_deg = [-126.05, -179.99, 0.0, -114.59, -179.99, -11.46]
-upper_limits_deg = [126.05, 11.46, 179.99, 103.13, 179.99, 114.59]
+offset_deg = [0.0, 80.0, -90.0, 0.0, 0.0, 0.0]
+direction = [-1.0, 1.0, 1.0, 1.0, 1.0, 1.0] # motor2mujoco direction
+# lower_limits_deg = [-126.05, -179.99, 0.0, -114.59, -179.99, -11.46] # mujoco zero position limits
+# upper_limits_deg = [126.05, 11.46, 179.99, 103.13, 179.99, 114.59]
 
 def convert_to_bytes(value, bytes):
     if bytes == 1:
@@ -45,7 +45,7 @@ class FeetechMotor:
     def __init__(self, motor_id, port="/dev/ttyACM0"):
         self.setMotorId(motor_id)
         self.port = port
-        self.print_flag = False
+        self.print_flag = True
     
     def printFlag(self, on):
         if on:
@@ -156,28 +156,40 @@ class FeetechMotor:
             if self.print_flag:
                 print(f"警告：位置 {input_value} 超出限位范围 [{min_angle}, {max_angle}]，已修正为 {constrained_angle}")
         constrained_angle = constrained_angle + offset_deg[self.motor_id - 1]
-        output = (constrained_angle + 180.0) * 4096.0 / 360.0
-        output = round(output)
+        # 公式：位置 = 中间值(2048) + 角度 × (总步数4096 / 总角度360)
+        output_pos = 2048 + constrained_angle * (4096 / 360)
+        # 6. 确保位置在电机硬件范围内（0~4095）
+        output_pos = max(0, min(round(output_pos), 4095))
 
-        return output, constrained_angle
+        return output_pos, constrained_angle
     
-    def _motor2deg(self, input_value):
-        angle = (input_value * 360.0 / 4096.0) - 180.0 
-        angle = angle - offset_deg[self.motor_id - 1]
-        angle = angle * direction[self.motor_id - 1]
-        return angle
+    def _motor2deg(self, input_pos):
+        """
+        电机硬件位置（0~4095）→ 实际角度（-180°~180°）
+        """
+        # 1. 位置→原始角度（基于2048对应0°）
+        raw_angle = (input_pos - 2048) * (360 / 4096)
+        # 2. 抵消offset补偿
+        raw_angle -= offset_deg[self.motor_id - 1]
+        # 3. 应用方向修正（与角度→位置的方向一致）
+        raw_angle = raw_angle * direction[self.motor_id - 1]
+        return round(raw_angle, 2)  # 保留2位小数，避免精度冗余
 
-    def setPosition(self, position):
+    def setPosition(self, position_deg):
         """
-        位置范围：0~4095，对应-180~180度
+        设定舵机角度（用户预期范围：-180° ~ 180°）
+        position_deg: 目标角度（单位：度）
         """
-        # 转换为电机位置值
-        conv_position, constrained_angle = self._deg2MotorLimited(position)
+        # 转换角度为电机硬件位置（0~4095），并应用限位
+        conv_position, constrained_angle = self._deg2MotorLimited(position_deg)
         if self.print_flag:
-            print(f"电机ID {self.motor_id} 下发角度：{position}° 实际设置位置: {conv_position} 实际控制角度: {constrained_angle}°)")
+            print(f"电机ID {self.motor_id} 下发角度：{position_deg}° → 修正后角度：{constrained_angle}° → 电机位置：{conv_position}")
         
-        # 发送位置指令
+        # 发送位置指令到舵机
         self.write_with_motor_ids(self.motor_id, "Goal_Position", conv_position)
+
+    def setRawPosition(self, position):
+        self.write_with_motor_ids(self.motor_id, "Goal_Position", position)
 
     def getPosition(self):
         """
@@ -187,6 +199,32 @@ class FeetechMotor:
         conv_position = self._motor2deg(position)
         # print(f"Get position: {conv_position}")
         return conv_position
+
+    def getRawPosition(self):
+        """
+        位置范围：0~4095
+        """
+        position = self.read_with_motor_ids(self.motor_id, "Present_Position")
+        return position
+    
+    def getOffset(self):
+        return self.read_with_motor_ids(self.motor_id, "Offset")
+
+    def setOffsetCurrent(self):
+        self.write_with_motor_ids(self.motor_id, "Offset", 0)
+        time.sleep(1.0)
+        actual_positions = self.getRawPosition()
+        print(f"Actual positions: {actual_positions}")
+        homing_offset = actual_positions - int(macro.MODEL_RESOLUTION / 2)
+        if homing_offset < 0:
+            homing_offset = 0
+            print(f"Homing offset is negative, set to 0. Check middle position of motor.")
+        else:
+            print(f"Homing offset: {homing_offset}")
+        self.write_with_motor_ids(self.motor_id, "Offset", homing_offset)
+        time.sleep(1.0)
+        self.write_with_motor_ids(self.motor_id,"Min_Angle_Limit", 0)
+        self.write_with_motor_ids(self.motor_id,"Max_Angle_Limit", 4095)
 
     def getAllConfig(self):
         config = {}
@@ -204,6 +242,9 @@ class FeetechMotor:
         步/s	单位时间（每秒）内运动的步数
         """
         self.write_with_motor_ids(self.motor_id, "Goal_Speed", speed)
+
+    def setOffset(self, offset):
+        self.write_with_motor_ids(self.motor_id, "Offset", offset)
 
     def getSpeed(self):
         return self.read_with_motor_ids(self.motor_id, "Present_Speed")
@@ -229,20 +270,6 @@ def generatePositionSequence(start_position, range_value, loops=1):
     return sequence
 
 if __name__ == "__main__":
-    motor = FeetechMotor(6, "/dev/ttyACM0")
-    motor.connect()
-    motor.setPosition(2048)
-    time.sleep(1)
-    start_position = motor.getPosition()
-    print(f"Start position: {start_position}")
-    range_val = 600
-    loop_count = 10
-    result = generatePositionSequence(start_position, range_val, loop_count)
-    for position in result:
-        motor.setPosition(position)
-        current_position = motor.getPosition()
-        print(f"Current position: {current_position}, Goal position: {position}, Current_speed: {motor.getSpeed()}")
-        time.sleep(0.005)
-    motor.disconnect()
+    pass
 
 

@@ -37,9 +37,23 @@ if __name__ == "__main__":
                 sys.exit(1)
             target_value = float(sys.argv[3])
             motor.setPosition(target_value)
+        elif operation == "set_raw_pos":
+            if len(sys.argv) != 4:
+                print("set_raw_pos操作需要指定目标角度: python motor_control.py <ID> set_raw_pos <角度>")
+                sys.exit(1)
+            target_value = int(sys.argv[3])
+            motor.setRawPosition(target_value)
         elif operation == "get_pos":
             position = motor.getPosition()
             print(f"电机ID {motor_id} 的当前位置: {position}°")
+        elif operation == "get_raw_pos":
+            position = motor.getRawPosition()
+            print(f"电机ID {motor_id} 的当前位置: {position}")
+        elif operation == "get_offset":
+            offset = motor.getOffset()
+            print(f"电机ID {motor_id} 的当前偏移: {offset}")
+        elif operation == "set_offset_current":
+            motor.setOffsetCurrent()
         elif operation == "set_speed":
             if len(sys.argv) != 4:
                 print("set_speed操作需要指定目标速度: python motor_control.py <ID> set_speed <速度>")
@@ -69,6 +83,13 @@ if __name__ == "__main__":
             d_value = int(sys.argv[5])
             motor.setPID(p_value, i_value, d_value)
             print(f"电机ID {motor_id} 的PID已设置为 P={p_value}, I={i_value}, D={d_value}")
+        elif operation == "set_offset":
+            if len(sys.argv) != 4:
+                print("cmd failed ")
+                sys.exit(1)
+            offset = int(sys.argv[3])
+            motor.setOffset(offset)
+
         else:
             print(f"未知操作: {operation}")
             print_usage()
