@@ -8,14 +8,14 @@ import math
 # direction = [-1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 # lower_limits_deg = [-126.05, -89.99, -89.99, -114.59, -179.99, -11.46]
 # upper_limits_deg = [126.05, 101.46, 89.99, 103.13, 179.99, 114.59]
-lower_limits_deg = [-180.0, -180.0, -180.0, -180.0, -180.0, -180.0]
-upper_limits_deg = [180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
+# lower_limits_deg = [-180.0, -180.0, -180.0, -180.0, -180.0, -180.0]
+# upper_limits_deg = [180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
 
 # motor2mujoco zero offset
 offset_deg = [0.0, 80.0, -90.0, 0.0, 0.0, 0.0]
 direction = [-1.0, 1.0, 1.0, 1.0, 1.0, 1.0] # motor2mujoco direction
-# lower_limits_deg = [-126.05, -179.99, 0.0, -114.59, -179.99, -11.46] # mujoco zero position limits
-# upper_limits_deg = [126.05, 11.46, 179.99, 103.13, 179.99, 114.59]
+lower_limits_deg = [-126.05, -179.99, 0.0, -114.59, -179.99, -11.46] # mujoco zero position limits
+upper_limits_deg = [126.05, 11.46, 179.99, 103.13, 179.99, 114.59]
 
 def convert_to_bytes(value, bytes):
     if bytes == 1:

@@ -41,22 +41,20 @@ try:
             continue
         
         # 解析JSON数据
-        json_data = json.loads(data)
-        joint_pos_deg = json_data["joint_pos"]
-        control_mode = json_data["control_mode"]
+        action = json.loads(data)
+        joint_pos_deg = [val for key, val in action.items() if key.endswith(".pos")]
         
         # 发送控制指令给实际机械臂
-        if control_mode == "position":
-            for i in range(1, 7):
-                motor.setMotorId(i)
-                motor.setSpeed(2000)  # 设置目标速度为1000步/秒
-                motor.printFlag(False)  # 打开打印
-                if i == 1 or i == 2:
-                    motor.setPID(16, 16, 0)
-                else:   
-                    motor.setPID(32, 32, 0)  # 设置PID参数
-                motor.setPosition(joint_pos_deg[i - 1])
-                # print(f"Motor ID {i} set to position {joint_pos_deg[i - 1]}°")
+        for i in range(1, 7):
+            motor.setMotorId(i)
+            motor.setSpeed(2000)  # 设置目标速度为1000步/秒
+            motor.printFlag(False)  # 打开打印
+            if i == 1 or i == 2:
+                motor.setPID(16, 16, 0)
+            else:   
+                motor.setPID(32, 32, 0)  # 设置PID参数
+            motor.setPosition(joint_pos_deg[i - 1])
+            # print(f"Motor ID {i} set to position {joint_pos_deg[i - 1]}°")
         
         # 短暂延迟，避免CPU占用过高
         # time.sleep(0.01)
