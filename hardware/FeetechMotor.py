@@ -17,6 +17,39 @@ direction = [-1.0, 1.0, 1.0, 1.0, 1.0, 1.0] # motor2mujoco direction
 lower_limits_deg = [-126.05, -179.99, 0.0, -114.59, -179.99, -11.46] # mujoco zero position limits
 upper_limits_deg = [126.05, 11.46, 179.99, 103.13, 179.99, 114.59]
 
+def motor2deg(motor_id: int, input_pos: int) -> float:
+    """
+    电机硬件位置（0~4095）→ 实际角度（度，mujoco 零位系）
+    纯函数：按 motor_id 索引 offset/direction，供批量读取后逐电机换算
+    """
+    # 位置→原始角度（基于2048对应0°）
+    raw_angle = (input_pos - 2048) * (360 / 4096)
+    # 抵消offset补偿
+    raw_angle -= offset_deg[motor_id - 1]
+    # 应用方向修正
+    raw_angle = raw_angle * direction[motor_id - 1]
+    return round(raw_angle, 2)  # 保留2位小数，避免精度冗余
+
+
+def deg2motor(motor_id: int, input_value, print_warning: bool = False):
+    """
+    角度（度，mujoco 零位系）→ (电机硬件位置 0~4095, 修正后角度)
+    纯函数：方向修正 → 限位钳位 → offset 补偿 → 步数换算，按 motor_id 索引
+    """
+    value = input_value * direction[motor_id - 1]
+    min_angle = lower_limits_deg[motor_id - 1]
+    max_angle = upper_limits_deg[motor_id - 1]
+    constrained_angle = max(min(value, max_angle), min_angle)
+    if constrained_angle != value and print_warning:
+        print(f"警告：位置 {value} 超出限位范围 [{min_angle}, {max_angle}]，已修正为 {constrained_angle}")
+    constrained_angle = constrained_angle + offset_deg[motor_id - 1]
+    # 公式：位置 = 中间值(2048) + 角度 × (总步数4096 / 总角度360)
+    output_pos = 2048 + constrained_angle * (4096 / 360)
+    # 确保位置在电机硬件范围内（0~4095）
+    output_pos = max(0, min(round(output_pos), 4095))
+    return output_pos, constrained_angle
+
+
 def convert_to_bytes(value, bytes):
     if bytes == 1:
         data = [
@@ -146,34 +179,10 @@ class FeetechMotor:
             )
 
     def _deg2MotorLimited(self, input_value):
-        input_value = input_value * direction[self.motor_id - 1]
-        # 获取当前电机的角度限位
-        min_angle = lower_limits_deg[self.motor_id - 1 ]
-        max_angle = upper_limits_deg[self.motor_id - 1]
-    
-        constrained_angle = max(min(input_value, max_angle), min_angle)
-        if constrained_angle != input_value:
-            if self.print_flag:
-                print(f"警告：位置 {input_value} 超出限位范围 [{min_angle}, {max_angle}]，已修正为 {constrained_angle}")
-        constrained_angle = constrained_angle + offset_deg[self.motor_id - 1]
-        # 公式：位置 = 中间值(2048) + 角度 × (总步数4096 / 总角度360)
-        output_pos = 2048 + constrained_angle * (4096 / 360)
-        # 6. 确保位置在电机硬件范围内（0~4095）
-        output_pos = max(0, min(round(output_pos), 4095))
+        return deg2motor(self.motor_id, input_value, print_warning=self.print_flag)
 
-        return output_pos, constrained_angle
-    
     def _motor2deg(self, input_pos):
-        """
-        电机硬件位置（0~4095）→ 实际角度（-180°~180°）
-        """
-        # 1. 位置→原始角度（基于2048对应0°）
-        raw_angle = (input_pos - 2048) * (360 / 4096)
-        # 2. 抵消offset补偿
-        raw_angle -= offset_deg[self.motor_id - 1]
-        # 3. 应用方向修正（与角度→位置的方向一致）
-        raw_angle = raw_angle * direction[self.motor_id - 1]
-        return round(raw_angle, 2)  # 保留2位小数，避免精度冗余
+        return motor2deg(self.motor_id, input_pos)
 
     def setPosition(self, position_deg):
         """
@@ -254,6 +263,12 @@ class FeetechMotor:
         写0：关闭扭力输出/自由状态； 写1：打开扭力输出； 写2：阻尼状态
         """
         self.write_with_motor_ids(self.motor_id, "Torque_Enable", enable)
+
+    def getTorqueEnable(self):
+        """
+        读取当前扭矩状态：0 自由状态；1 扭矩使能；2 阻尼状态
+        """
+        return self.read_with_motor_ids(self.motor_id, "Torque_Enable")
 
     def setPID(self, p, i, d):
         self.write_with_motor_ids(self.motor_id, "P_Coefficient", p)

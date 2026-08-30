@@ -1,0 +1,15 @@
+[project]
+name = "so-arm100"
+version = "0.1.0"
+description = "SO-ARM100 6-DOF arm: Feetech SCS driver, examples, and web control/telemetry UI"
+requires-python = ">=3.11"
+dependencies = [
+    "feetech-servo-sdk",
+    "pyzmq",
+    "numpy",
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[tool.uv]
+package = false

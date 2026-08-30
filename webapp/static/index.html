@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SO-ARM100 控制台</title>
+  <link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<header>
+  <h1>SO-ARM100 <span class="sub">Web 控制台</span></h1>
+  <div class="statusbar">
+    <span id="conn-badge" class="badge">连接中…</span>
+    <span id="bus-badge" class="badge">bus —</span>
+    <button id="reconnect-btn" title="USB 插拔后串口句柄失效：关闭并重新打开串口（不动作）">重连</button>
+    <span id="err-badge" class="badge err hidden">总线错误</span>
+    <span id="free-badge" class="badge free hidden">⚠ 自由状态（扭矩关闭）</span>
+    <label class="arm-toggle" title="解锁后才允许下发位置/预设指令">
+      <input type="checkbox" id="arm-toggle"> 允许运动
+    </label>
+    <button id="estop-btn" title="立即释放全部关节扭矩（自由状态）— 快捷键 Esc">■ E-STOP</button>
+    <button id="torque-on-btn" title="E-STOP 后恢复：重新使能全部关节扭矩（手臂会朝各关节目标位置运动）">恢复使能</button>
+  </div>
+</header>
+
+<main>
+  <section class="panel" id="control-panel">
+    <h2>控制</h2>
+    <div class="preset-row">
+      <button class="preset-btn" data-preset="middle">中位 middle</button>
+      <button class="preset-btn" data-preset="rest">休息 rest</button>
+      <span class="hint">需允许运动，操作前有确认</span>
+    </div>
+    <div class="speed-row">
+      <label>限速（步/s）</label>
+      <input type="number" id="speed-input" value="500" min="1" max="2000">
+      <button id="speed-apply">应用到全部关节</button>
+      <span class="hint">0 被禁止（SCS 上 0 = 不限速）</span>
+    </div>
+    <div class="pose-row">
+      <button id="pose-save-btn" title="把当前 6 关节位置保存为命名点位">⊙ 保存当前点位</button>
+      <span class="hint">需允许运动；保存后跨会话可用</span>
+    </div>
+    <div id="pose-list"></div>
+    <div id="joint-sliders"></div>
+  </section>
+
+  <section class="panel" id="viz-panel">
+    <h2>手臂模型 <span class="schematic-tag">TRS SO-ARM100</span></h2>
+    <div id="arm3d-wrap">
+      <canvas id="arm3d-canvas"></canvas>
+      <div id="arm3d-msg" class="hidden"></div>
+    </div>
+    <p class="hint" style="margin:6px 0 0">左键旋转 · 滚轮缩放 · 右键平移 · 色点=关节状态（绿保持/琥珀运动中/灰扭矩关/红过热）</p>
+    <h2>关节曲线（最近 60s）<span class="schematic-tag">实线=当前 · 虚线=下发目标</span></h2>
+    <canvas id="spark-canvas" width="560" height="300"></canvas>
+  </section>
+
+  <section class="panel" id="telemetry-panel">
+    <h2>遥测</h2>
+    <div id="joint-cards" class="cards"></div>
+  </section>
+
+  <section class="panel" id="config-panel">
+    <h2>配置</h2>
+    <div class="tabs">
+      <button class="tab active" data-tab="pid">PID</button>
+      <button class="tab" data-tab="offset">Offset</button>
+      <button class="tab" data-tab="table">控制表</button>
+      <button class="tab" data-tab="bus">总线</button>
+    </div>
+    <div id="tab-pid" class="tab-body"></div>
+    <div id="tab-offset" class="tab-body hidden"></div>
+    <div id="tab-table" class="tab-body hidden"></div>
+    <div id="tab-bus" class="tab-body hidden"></div>
+  </section>
+</main>
+
+<footer>
+  安全提示：关闭扭矩后手臂将自由下垂，注意机械限位与负载。E-STOP 随时可用（按钮或 Esc 键）。
+  运行 examples 脚本前请先停止本服务（串口单进程独占）。
+</footer>
+
+<div id="toast-wrap"></div>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/vendor/three.module.min.js",
+    "three/addons/controls/OrbitControls.js": "/vendor/OrbitControls.js",
+    "three/addons/loaders/STLLoader.js": "/vendor/STLLoader.js"
+  }
+}
+</script>
+<script src="app.js?v=6"></script>
+<script type="module" src="arm3d.js?v=5"></script>
+</body>
+</html>
